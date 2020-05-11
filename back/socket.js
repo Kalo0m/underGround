@@ -1,32 +1,47 @@
 let Lobby = require("./lobby");
+var lobbys = [];
+
 const setIo = function (nIo) {
   let io = nIo;
-  var lobbys = [];
   io.on("connection", function (socket) {
     console.log("someone connected");
-    socket.on("createGame", function (player) {
-      let newLobby = new Lobby();
-      newLobby.userJoin(player, socket);
-      lobbys.push(newLobby);
+    socket.on("createGame", function (player, uuid) {
+      console.log("quelqu'un a créé un lobby : id = " + uuid);
+      userJoin(player, uuid, socket);
     });
-    socket.on("joinGame", function (player, uuid) {
-      lobbys.find((item) => item.uuid === uuid).userJoin(player, socket);
-      socket.emit(
-        "initialisation",
-        lobbys.find((item) => item.uuid === uuid).players
-      );
+    socket.on("joinGame", function (player) {
+      userJoin(player, player.lobbyId, socket);
+      console.log(lobbys[player.lobbyId]);
+      socket.emit("initialisation", lobbys[player.lobbyId]);
     });
     socket.on("gameStarted", function (player) {
-      const lobby = lobbys.find((item) =>
-        item.players.map((item) => item.id).includes(player.id)
-      );
-      socket.broadcast.to(lobby.uuid).emit("gameStarted");
+      console.log("aaaaaa");
+      const lobby = Object.values(lobbys).find((
+        item // on récupère le lobby du player passé en parametre
+      ) => item.includes(item.find((item2) => item2.id === player.id)));
+      var lobbyID;
+      Object.entries(lobbys).forEach(([clé, valeur]) => {
+        if (valeur === lobby) lobbyID = clé;
+      });
+      console.log("id : " + lobbyID);
+      console.log("res : ");
+      console.log(lobby);
+      socket.broadcast.to(lobbyID).emit("gameStarted");
     });
     socket.on("messageSend", function (mot, player) {
-      lobbys
-        .find((item) => item.players.map((item) => item.id).includes(player.id))
-        .addMot(mot, player, socket);
+      socket.broadcast.to(player.lobbyId).emit("sendMot", mot, player);
     });
   });
 };
+function userJoin(player, uuid, socket) {
+  if (!lobbys[uuid]) lobbys[uuid] = [];
+  lobbys[uuid].push(player);
+  console.log(player);
+  console.log(uuid);
+  console.log(player.lobbyId);
+  console.log(lobbys[player.lobbyId]);
+  socket.join(uuid);
+  socket.broadcast.to(uuid).emit("userJoinSend", player);
+}
+
 module.exports = setIo;
