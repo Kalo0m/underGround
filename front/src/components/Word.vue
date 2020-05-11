@@ -1,12 +1,10 @@
 <template
-  ><div>{{ this.aaa }}</div></template
+  ><div>{{ word }}</div></template
 >
 
 <script>
 export default {
   name: "Mot",
-  data: function() {
-    return { aaa: "mot" };
-  },
+  props: ["word"],
 };
 </script>

@@ -1,11 +1,12 @@
 const { v4: uuidv4 } = require("uuid");
 
 class PlayerModel {
-  constructor(pseudo, isAdmin) {
+  constructor(pseudo, isAdmin, lobbyId) {
     this.pseudo = pseudo;
-    this.mots = ["mesage1", "message2"];
+    this.mots = [];
     this.isAdmin = isAdmin || false;
     this.id = uuidv4();
+    this.lobbyId = lobbyId || null;
   }
   addMot(mot) {
     this.mots.push(mot);

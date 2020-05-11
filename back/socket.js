@@ -1,4 +1,4 @@
-let Lobby = require("./lobby");
+let words = require("./words");
 var lobbys = [];
 
 const setIo = function (nIo) {
@@ -15,18 +15,22 @@ const setIo = function (nIo) {
       socket.emit("initialisation", lobbys[player.lobbyId]);
     });
     socket.on("gameStarted", function (player) {
-      console.log("aaaaaa");
-      const lobby = Object.values(lobbys).find((
-        item // on récupère le lobby du player passé en parametre
-      ) => item.includes(item.find((item2) => item2.id === player.id)));
+      // récupération du lobby du player
+      const lobby = Object.values(lobbys).find((item) =>
+        item.includes(item.find((item2) => item2.id === player.id))
+      );
       var lobbyID;
+      // récupération de l'id du lobby
       Object.entries(lobbys).forEach(([clé, valeur]) => {
         if (valeur === lobby) lobbyID = clé;
       });
-      console.log("id : " + lobbyID);
-      console.log("res : ");
-      console.log(lobby);
-      socket.broadcast.to(lobbyID).emit("gameStarted");
+      // récupération d'un couple de mots
+      randomCoupleOfWords = words[getRandomInt(lobby.length)];
+      console.log(randomCoupleOfWords);
+      randomPlayerId = lobby[getRandomInt(lobby.length)].id;
+      console.log("pour etre sur");
+      console.log(socket.rooms);
+      io.in(lobbyID).emit("gameStarted", randomCoupleOfWords, randomPlayerId);
     });
     socket.on("messageSend", function (mot, player) {
       socket.broadcast.to(player.lobbyId).emit("sendMot", mot, player);
@@ -36,12 +40,10 @@ const setIo = function (nIo) {
 function userJoin(player, uuid, socket) {
   if (!lobbys[uuid]) lobbys[uuid] = [];
   lobbys[uuid].push(player);
-  console.log(player);
-  console.log(uuid);
-  console.log(player.lobbyId);
-  console.log(lobbys[player.lobbyId]);
   socket.join(uuid);
   socket.broadcast.to(uuid).emit("userJoinSend", player);
 }
-
+function getRandomInt(max) {
+  return Math.floor(Math.random() * Math.floor(max));
+}
 module.exports = setIo;

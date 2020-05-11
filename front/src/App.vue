@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <div class="game" v-if="this.gameStarted">
-      <div class="mot-container"><Mot></Mot></div>
+      <div class="mot-container"><Mot v-bind:word="this.word"></Mot></div>
       <div class="players-container">
         <Player
           v-for="player in this.players"
@@ -18,6 +18,7 @@
           {{ player.pseudo }}
         </div>
       </div>
+      <p v-if="this.lobbyId != null">id of the lobby : {{ this.lobbyId }}</p>
       <button v-if="this.me.isAdmin" @click="startGame">
         Commencer la partie
       </button>
@@ -42,6 +43,8 @@ import Player from "./components/Player";
 import io from "socket.io-client";
 import config from "../config/config.js";
 import PlayerModel from "../models/Player.js";
+const { v4: uuidv4 } = require("uuid");
+
 var socket = io.connect("http://localhost:4000");
 console.log(config);
 export default {
@@ -54,11 +57,13 @@ export default {
     return {
       players: [],
       me: null,
+      word: "",
       inputPseudo: "",
       uuidInput: "",
       gameStarted: false,
       gameLoading: false,
       error: null,
+      lobbyId: null,
     };
   },
 
@@ -67,15 +72,20 @@ export default {
       if (this.inputPseudo != "") {
         this.me = new PlayerModel(this.inputPseudo, true);
         console.log(this.me);
+        const uuid = uuidv4().split("-")[0];
+        this.lobbyId = uuid;
+        this.me.lobbyId = uuid;
         this.players.push(this.me);
-        socket.emit("createGame", this.me);
+        socket.emit("createGame", this.me, uuid);
         this.gameLoading = true;
       }
     },
     joinGame: function() {
       if (this.uuidInput != "" && this.inputPseudo != "") {
         this.me = new PlayerModel(this.inputPseudo);
-        socket.emit("joinGame", this.me, this.uuidInput);
+        this.me.lobbyId = this.uuidInput;
+        this.players.push(this.me);
+        socket.emit("joinGame", this.me, this.uuid);
         this.gameLoading = true;
       }
     },
@@ -84,8 +94,6 @@ export default {
         this.players.length >= config.MIN_PLAYER &&
         this.players.length <= config.MAX_PLAYER
       ) {
-        this.gameLoading = false;
-        this.gameStarted = true;
         socket.emit("gameStarted", this.me);
       } else {
         this.error = "la room doit avoir entre 2 et 6 joueurs !";
@@ -109,14 +117,14 @@ export default {
     socket.on("initialisation", (players) => {
       this.players = players;
     });
-    socket.on("gameStarted", () => {
+    socket.on("gameStarted", (words, playerIdOfIntru) => {
+      console.log("get initialized");
       this.gameStarted = true;
       this.gameLoading = false;
+      if (this.me.id === playerIdOfIntru) this.word = words[1];
+      else this.word = words[0];
     });
     socket.on("sendMot", (mot, player) => {
-      console.log("player qui a envoyé un mot :");
-      console.log(this.players);
-      console.log(this.players.find((item) => item.id === player.id));
       this.players.find((item) => item.id === player.id).mots.push(mot);
     });
   },
@@ -140,7 +148,7 @@ export default {
   display: flex;
   flex-wrap: no-wrap;
   width: 100%;
-  height: 500px;
+
   align-items: stretch;
   justify-content: space-around;
 }
