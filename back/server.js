@@ -6,6 +6,6 @@ const server = app.listen(4000, function () {
 var io = require("socket.io")(server);
 require("./socket")(io);
 
-app.get("/", function (req, res) {
+app.get("/eliott", function (req, res) {
   res.send("Bienvenu sur mon serveur");
 });

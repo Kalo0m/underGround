@@ -9,7 +9,8 @@
           v-bind:player="player"
         ></Player>
       </div>
-      <input type="text" @keyup.enter="addMot" />
+      <input type="text" @keyup.enter="addMot" /><br /><br />
+      <button v-if="this.me.isAdmin" @click="goToVote">passer aux votes</button>
     </div>
     <div v-else-if="this.gameLoading" class="text-field">
       liste des joueurs
@@ -22,6 +23,22 @@
       <button v-if="this.me.isAdmin" @click="startGame">
         Commencer la partie
       </button>
+    </div>
+    <div v-else-if="this.gameVote" class="text-field">
+      choisissez le joueur pour qui voter :
+      <div class="players-container">
+        <div v-for="player in this.players" :key="player.id">
+          {{ player.nbVotes }} {{ player.pseudo }}
+          <button @click="voteForAPlayer(player)">Voter pour ce joueur</button>
+        </div>
+      </div>
+    </div>
+    <div v-else-if="this.gameResult" class="text-field">
+      RESULT, l'intru était {{ this.intru.pseudo }}
+      Votre score : {{ this.score }}
+      <p v-if='this.intru.id === this.voteFor.id' class='green'>GAGNÉ</p>
+      <p v-else class='red'>PERDU</p>
+      <button v-if='this.me.isAdmin' @click='newWord'>Nouveau mot</button>
     </div>
     <div v-else>
       pseudo :
@@ -45,7 +62,7 @@ import config from "../config/config.js";
 import PlayerModel from "../models/Player.js";
 const { v4: uuidv4 } = require("uuid");
 
-var socket = io.connect("http://localhost:4000");
+var socket = io.connect("http://192.168.1.20:4000");
 console.log(config);
 export default {
   name: "App",
@@ -62,8 +79,13 @@ export default {
       uuidInput: "",
       gameStarted: false,
       gameLoading: false,
+      gameVote: false,
+      gameResult: false,
+      intru: null,
       error: null,
       lobbyId: null,
+      voteFor: null,
+      score : 0,
     };
   },
 
@@ -71,7 +93,6 @@ export default {
     createGame: function() {
       if (this.inputPseudo != "") {
         this.me = new PlayerModel(this.inputPseudo, true);
-        console.log(this.me);
         const uuid = uuidv4().split("-")[0];
         this.lobbyId = uuid;
         this.me.lobbyId = uuid;
@@ -108,6 +129,31 @@ export default {
         .mots.push(event.target.value);
       socket.emit("messageSend", event.target.value, this.me);
     },
+
+    voteForAPlayer: function(player) {
+      if (this.voteFor === null) {
+        socket.emit("voteForAPlayer", this.me, player);
+        this.voteFor = player;
+      } else this.error = "vous avez déjà voté !"; // vote pour un joueur
+    },
+    goToVote: function() {
+      this.gameStarted = false;
+      this.gameVote = true;
+      socket.emit("goToVote", this.me);
+    },
+    newWord : function(){
+      this.initMe();
+      socket.emit('newWord',this.lobbyId);
+    },
+    initMe : function(){
+      this.voteFor = null;
+      this.intru = null;
+      this.players.forEach(element =>{
+        element.mots = [];
+        element.nbVotes = 0;
+        element.isIntru = false;
+      })
+    }
   },
   mounted() {
     socket.on("userJoinSend", (player) => {
@@ -121,11 +167,38 @@ export default {
       console.log("get initialized");
       this.gameStarted = true;
       this.gameLoading = false;
-      if (this.me.id === playerIdOfIntru) this.word = words[1];
-      else this.word = words[0];
+      this.me.id === playerIdOfIntru
+        ? (this.word = words[1])
+        : (this.word = words[0]);
     });
     socket.on("sendMot", (mot, player) => {
       this.players.find((item) => item.id === player.id).mots.push(mot);
+    });
+    socket.on("gotoVote", () => {
+      this.gameStarted = false;
+      this.gameVote = true;
+    });
+    socket.on("voteForAPlayer", (player,nbVotes) => {
+      
+      this.players.find((item) => item.id === player.id).nbVotes = nbVotes;
+    });
+    socket.on("result", (lobby) => {
+      console.log(lobby);
+      this.intru = this.players.find((item) => item.id === lobby.intruId);
+      this.score = lobby.players.find(item=>item.id === this.me.id).score;
+      this.voteFor
+      console.log(lobby);
+      this.gameVote = false;
+      this.gameResult = true;
+    });
+    socket.on('newWord', (words, playerIdOfIntru)=>{
+      this.initMe();
+      this.gameResult = false;
+      this.gameStarted = true;
+      this.me.id === playerIdOfIntru
+        ? (this.word = words[1])
+        : (this.word = words[0]);
+      
     });
   },
 };
@@ -135,6 +208,19 @@ export default {
 * {
   font-size: 22px;
   font-family: "Source Sans Pro", "Arial", sans-serif;
+}
+.red{
+  width:100px;
+  text-align:center;
+  padding:20px;
+  background-color: red;
+}
+.green{
+    padding:20px;
+
+  width:100px;
+  text-align:center;
+  background-color: green;
 }
 .mot-container {
   display: flex;
@@ -148,7 +234,7 @@ export default {
   display: flex;
   flex-wrap: no-wrap;
   width: 100%;
-
+  height: 200px;
   align-items: stretch;
   justify-content: space-around;
 }

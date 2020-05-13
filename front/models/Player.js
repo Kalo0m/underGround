@@ -7,12 +7,9 @@ class PlayerModel {
     this.isAdmin = isAdmin || false;
     this.id = uuidv4();
     this.lobbyId = lobbyId || null;
-  }
-  addMot(mot) {
-    this.mots.push(mot);
-  }
-  toString() {
-    return "nom : ${this.pseudo}";
+    this.nbVotes = 0;
+    this.isIntru = false;
+    this.score = 0
   }
 }
 export default PlayerModel;
